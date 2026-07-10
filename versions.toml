@@ -1,0 +1,261 @@
+# versions.toml — the ONE place to review and adjust the tools matrix.
+#
+# Everything is FIXED here (no dynamic resolution at build time): bump a value
+# and the next publish moves that cell. Read by the Go pipeline
+# (.mise/internal/provider, via BurntSushi/toml).
+#
+# Two kinds of tool under [tools]:
+#
+#   [tools.go]                MIRRORED. Map of clean selector key -> official
+#                             upstream Go tarball tag. Downloaded as-is
+#                             (byte-identical), never built.
+#
+#   [[tools.<name>]]          BUILT via `go install <path>@<version>`. Repeat the
+#                             subtable to publish MULTIPLE versions of the same
+#                             tool — the repo then serves old and new build
+#                             configs (e.g. golangci-lint v1 and v2, which live
+#                             at different module paths). Each version is built
+#                             once per (buildgo, os, arch) cell with
+#                             CGO_ENABLED=0. The clean selector key (major.minor
+#                             derived from `version`) must be unique per tool.
+#
+# Tool list sourced from the provider Dockerfiles (Tools.txt = current,
+# Tools-old.txt = previous), minus the private yadro.dev/yadro.com tools and the
+# non-Go tools (sg3_utils, librrd, mise).
+#
+# Build matrix axes ([matrix].go_versions x {linux,darwin} x {amd64,arm64}) are
+# applied to every (tool, version) pair.
+
+[matrix]
+# Clean selector keys exposed to consumers (the version field in manifest.json).
+go_versions = ["1.25", "1.26", "1.27-beta"]
+
+# ---- mirrored tool -------------------------------------------------------
+
+[tools.go]
+"1.25" = "go1.25.9"
+"1.26" = "go1.26.5"
+# 1.27 has only release candidates upstream so far (no go1.27beta<N> yet).
+# Key stays "1.27-beta" for consumers; swap to a real go1.27beta<N> when it ships.
+"1.27-beta" = "go1.27rc2"
+
+# ---- built tools ---------------------------------------------------------
+# Each entry built with:
+#   GOOS=<os> GOARCH=<arch> CGO_ENABLED=0 GOBIN=<dir> \
+#     go install -trimpath -ldflags="-s -w" <path>@<version>
+# `binary` = resulting binary name. Add [[tools.<name>]] again to publish
+# another version (different major versions usually need a different `path`,
+# e.g. the /v2 or /v3 module suffix).
+
+# golangci-lint: v2 (current) + v1 (legacy). Different module paths.
+[[tools.golangci-lint]]
+version = "v2.12.2"
+path    = "github.com/golangci/golangci-lint/v2/cmd/golangci-lint"
+binary  = "golangci-lint"
+[[tools.golangci-lint]]
+version = "v1.64.8"
+path    = "github.com/golangci/golangci-lint/cmd/golangci-lint"
+binary  = "golangci-lint"
+
+[[tools.wsl]]
+version = "v5.8.0"
+path    = "github.com/bombsimon/wsl/v5/cmd/wsl"
+binary  = "wsl"
+
+[[tools.nilaway]]
+version = "fd187751154f" # commit pin (upstream)
+path    = "go.uber.org/nilaway/cmd/nilaway"
+binary  = "nilaway"
+
+[[tools.govulncheck]]
+version = "v1.3.0"
+path    = "golang.org/x/vuln/cmd/govulncheck"
+binary  = "govulncheck"
+
+# buf: current + legacy.
+[[tools.buf]]
+version = "v1.69.0"
+path    = "github.com/bufbuild/buf/cmd/buf"
+binary  = "buf"
+[[tools.buf]]
+version = "v1.30.1"
+path    = "github.com/bufbuild/buf/cmd/buf"
+binary  = "buf"
+
+# protoc-gen-go-grpc: current + legacy (same minor -> explicit keys).
+[[tools.protoc-gen-go-grpc]]
+version = "v1.6.2"
+path    = "google.golang.org/grpc/cmd/protoc-gen-go-grpc"
+binary  = "protoc-gen-go-grpc"
+key     = "1.6.2"
+[[tools.protoc-gen-go-grpc]]
+version = "v1.6.0"
+path    = "google.golang.org/grpc/cmd/protoc-gen-go-grpc"
+binary  = "protoc-gen-go-grpc"
+key     = "1.6.0"
+
+[[tools.protoc-gen-go]]
+version = "v1.36.11"
+path    = "google.golang.org/protobuf/cmd/protoc-gen-go"
+binary  = "protoc-gen-go"
+
+[[tools.protoc-gen-grpc-gateway]]
+version = "v2.29.0"
+path    = "github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway"
+binary  = "protoc-gen-grpc-gateway"
+
+[[tools.protoc-gen-openapiv2]]
+version = "v2.29.0"
+path    = "github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2"
+binary  = "protoc-gen-openapiv2"
+
+[[tools.pigeon]]
+version = "v1.3.0"
+path    = "github.com/mna/pigeon"
+binary  = "pigeon"
+
+[[tools.api-linter]]
+version = "v2.3.1"
+path    = "github.com/googleapis/api-linter/v2/cmd/api-linter"
+binary  = "api-linter"
+
+# mockery: v3 (current) + v2 (legacy). Different module paths.
+[[tools.mockery]]
+version = "v3.7.0"
+path    = "github.com/vektra/mockery/v3"
+binary  = "mockery"
+[[tools.mockery]]
+version = "v2.53.5"
+path    = "github.com/vektra/mockery/v2"
+binary  = "mockery"
+
+[[tools.protoc-gen-marshal-zap]]
+version = "v0.4.1"
+path    = "github.com/kei2100/protoc-gen-marshal-zap/plugin/protoc-gen-marshal-zap"
+binary  = "protoc-gen-marshal-zap"
+
+[[tools.gomarkdoc]]
+version = "v1.1.0"
+path    = "github.com/princjef/gomarkdoc/cmd/gomarkdoc"
+binary  = "gomarkdoc"
+
+[[tools.stringer]]
+version = "v0.45.0"
+path    = "golang.org/x/tools/cmd/stringer"
+binary  = "stringer"
+
+[[tools.yq]]
+version = "v4.53.2"
+path    = "github.com/mikefarah/yq/v4"
+binary  = "yq"
+
+[[tools.gci]]
+version = "v0.14.0"
+path    = "github.com/daixiang0/gci"
+binary  = "gci"
+
+[[tools.protolint]]
+version = "v0.56.4"
+path    = "github.com/yoheimuta/protolint/cmd/protolint"
+binary  = "protolint"
+
+[[tools.ygot]]
+version = "v0.34.0"
+path    = "github.com/openconfig/ygot/generator"
+binary  = "generator"
+
+[[tools.protoc-gen-python-grpc]]
+version = "v0.2.1"
+path    = "github.com/Djarvur/protoc-gen-python-grpc/cmd/protoc-gen-python-grpc"
+binary  = "protoc-gen-python-grpc"
+
+[[tools.protoc-gen-pyi]]
+version = "v1.34.1"
+path    = "github.com/wasilibs/go-protoc-gen-builtins/cmd/protoc-gen-pyi"
+binary  = "protoc-gen-pyi"
+
+[[tools.protoc-gen-python]]
+version = "v1.34.1"
+path    = "github.com/wasilibs/go-protoc-gen-builtins/cmd/protoc-gen-python"
+binary  = "protoc-gen-python"
+
+[[tools.easyp]]
+version = "v0.16.6"
+path    = "github.com/easyp-tech/easyp/cmd/easyp"
+binary  = "easyp"
+
+[[tools.swagger]]
+version = "v0.33.2"
+path    = "github.com/go-swagger/go-swagger/cmd/swagger"
+binary  = "swagger"
+
+[[tools.easyjson]]
+version = "v0.9.2"
+path    = "github.com/mailru/easyjson/easyjson"
+binary  = "easyjson"
+
+[[tools.mockgen]]
+version = "v0.6.0"
+path    = "go.uber.org/mock/mockgen"
+binary  = "mockgen"
+
+[[tools.varlink-go-interface-generator]]
+version = "4ab971aca869" # commit pin (upstream)
+path    = "github.com/varlink/go/cmd/varlink-go-interface-generator"
+binary  = "varlink-go-interface-generator"
+
+# ---- newer upstream versions (appended 2026-07-10) ----
+# Latest stable at check time. Existing entries above are unchanged. Entries
+# that share a major.minor with an existing one carry an explicit `key`.
+
+[[tools.govulncheck]]
+version = "v1.6.0"
+path    = "golang.org/x/vuln/cmd/govulncheck"
+binary  = "govulncheck"
+
+[[tools.buf]]
+version = "v1.71.0"
+path    = "github.com/bufbuild/buf/cmd/buf"
+binary  = "buf"
+
+[[tools.protoc-gen-go-grpc]]
+version = "v1.82.1"
+path    = "google.golang.org/grpc/cmd/protoc-gen-go-grpc"
+binary  = "protoc-gen-go-grpc"
+
+[[tools.mockery]]
+version = "v3.7.1"
+path    = "github.com/vektra/mockery/v3"
+binary  = "mockery"
+key     = "3.7.1"
+
+[[tools.stringer]]
+version = "v0.48.0"
+path    = "golang.org/x/tools/cmd/stringer"
+binary  = "stringer"
+
+[[tools.yq]]
+version = "v4.53.3"
+path    = "github.com/mikefarah/yq/v4"
+binary  = "yq"
+key     = "4.53.3"
+
+[[tools.protoc-gen-pyi]]
+version = "v1.35.1"
+path    = "github.com/wasilibs/go-protoc-gen-builtins/cmd/protoc-gen-pyi"
+binary  = "protoc-gen-pyi"
+
+[[tools.protoc-gen-python]]
+version = "v1.35.1"
+path    = "github.com/wasilibs/go-protoc-gen-builtins/cmd/protoc-gen-python"
+binary  = "protoc-gen-python"
+
+[[tools.swagger]]
+version = "v0.35.0"
+path    = "github.com/go-swagger/go-swagger/cmd/swagger"
+binary  = "swagger"
+
+[[tools.nilaway]]
+version = "fd97c8330720" # latest commit (upstream has no release tags)
+path    = "go.uber.org/nilaway/cmd/nilaway"
+binary  = "nilaway"

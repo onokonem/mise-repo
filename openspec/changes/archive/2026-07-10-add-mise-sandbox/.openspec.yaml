@@ -1,0 +1,5 @@
+schema: spec-driven
+created: 2026-07-10
+goal: Provide a vfox multi-tool mise plugin + binary host in mise-repo that
+  serves go (mirrored) and golangci-lint v2 (built) across 4 os/arch × 3
+  go-version matrix, and document consumer config for easyp-buf-proxy.

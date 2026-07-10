@@ -1,0 +1,40 @@
+# Consumer template — copy into easyp-buf-proxy (or any Go module) as mise.toml.
+#
+# One-time plugin install (the plugin lives in the .tools subdir of mise-repo,
+# hence the git::<url>//.tools subdir syntax):
+#
+#   mise plugin install tools \
+#     "git::https://github.com/onokonem/mise-repo.git//.tools"
+#
+# After install, `mise install` resolves the [tools] below to host cells with no
+# system Go required.
+
+[tools]
+"tools:go" = "1.26"               # bare version -> host os/arch cell
+"tools:golangci-lint" = "2.12-go1.26"
+
+# ---- per-invocation helpers ----------------------------------------------
+#
+# Tasks parse `go=`, `goos=`, `goarch=` from their args and run the command
+# under an explicit `mise exec` overlay (selection stays per-invocation and
+# parallel-safe; [tools] is never mutated). Examples:
+#   mise run test -- go=1.25
+#   mise run build -- go=1.26 goos=linux goarch=arm64
+#   mise run lint -- go=1.26
+#
+# NOTE: task bodies live in .mise/<task>.sh, not inline. mise passes extra args
+# (after `--`) as $1.. to a script FILE but embeds them as literal text in an
+# inline `run = """..."""` block — so inline `$@` parsing never receives them.
+# Invoking `sh .mise/<task>.sh` is the form that actually gets the args.
+
+[tasks.build]
+description = "Cross-compile (GOOS/GOARCH free). Uses host-native Go toolchain."
+run = "sh .mise/build.sh"
+
+[tasks.test]
+description = "Run tests with -race. Cell MUST be host (native guard enforced)."
+run = "sh .mise/test.sh"
+
+[tasks.lint]
+description = "Run golangci-lint against .golangci.yml. Cell MUST be host."
+run = "sh .mise/lint.sh"
