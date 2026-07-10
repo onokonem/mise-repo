@@ -1,0 +1,117 @@
+ARG REGISTRY
+ARG GOLANG_VERSION
+ARG DEBIAN_VERSION
+
+# NOTE: Currently there is no automation for building base Go image.
+# In case of upgrading Go version, cyp-go image should be built manually.
+FROM ${REGISTRY}/cyp-go:${GOLANG_VERSION}-${DEBIAN_VERSION}
+
+ARG ARTIFACTORY_URL_SPB
+ARG TARGETOS
+ARG TARGETARCH
+ARG GRPC_PYTHON_PLUGIN_PATH
+ARG SG3_UTILS_VERSION
+ARG SG3_UTILS_PATH
+
+# upgradeable versions
+ARG GOLANGCILINT_VERSION=v2.12.2
+ARG NILAWAY_VERSION=fd187751154f62abd1f06d90e87ab1c82aa49870
+ARG COVERAGE_TOOL_VERSION=v0.3.0
+ARG PROTOC_GEN_GO_VERSION=v1.36.11
+ARG PROTOC_GEN_GRPC_GATEWAY_VERSION=v2.29.0
+ARG PROTOC_GEN_OPENAPIV2_VERSION=v2.29.0
+ARG PROTOC_GEN_DOC_VERSION=4238487dc2457e1841bdab06138d3d3b3fda5090
+ARG PROTOC_GEN_MARSHAL_ZAP_VERSION=v0.4.1
+ARG API_LINTER_VERSION=v2.3.1
+ARG MOCKERY_VERSION=v3.7.0
+ARG MULTIVERSION_LINTER_VERSION=v1.0.0
+ARG GOMARKDOC_VERSION=v1.1.0
+ARG PIGEON_VERSION=v1.3.0
+ARG STRINGER_VERSION=v0.45.0
+ARG GOVULNCHECK_VERSION=v1.3.0
+ARG YQ_VERSION=v4.53.2
+ARG WSL_VERSION=v5.8.0
+ARG GCI_VERSION=v0.14.0
+ARG PROTOC_GEN_COBRA_VERSION=v1.8.5
+ARG PROTOC_GEN_GRPC_MOCK_VERSION=v1.0.0-rc.3
+ARG COLLECT_GEN_COBRA_CMDS_VERSION=v1.0.2
+ARG CYPERR_VERSION=v0.1.0
+ARG PROTOLINT_VERSION=v0.56.4
+ARG CYP_RESERVED_WORDS_LINTER=1df40e9c388a2d0bcaaed452cf138b8c0ea964a8
+ARG YGOT_VERSION=v0.34.0
+ARG PROTOC_GEN_VIPER_HOOKS_VERSION=20191d8507de1924813215a9ded57c358bbfbe41
+ARG PROTOC_GEN_PYTHON_GRPC_VERSION=v0.2.1
+ARG PROTOC_GEN_PYI_VERSION=v1.34.1
+ARG PROTOC_GEN_PYTHON_VERSION=v1.34.1
+ARG EASYP_CLI_VERSION=v0.16.6
+ARG GO_SWAGGER_VERSION=v0.33.2
+ARG EASYJSON_VERSION=v0.9.2
+ARG MOCKGEN_VERSION=v0.6.0
+ARG LIBRRD_VERSION=1.9.0-2.1
+ARG MISE_VERSION=v2026.5.9
+ARG BUF_VERSION=v1.69.0
+ARG PROTOC_GEN_GO_GRPC_VERSION=v1.6.2
+ARG VARLINK_GO_INTERFACE_GENERATOR_VERSION=4ab971aca86996ee51b3dfaf4d1eb09fc6626cdc
+
+RUN wget ${SG3_UTILS_PATH} && \
+    tar xzvf sg3_utils-${SG3_UTILS_VERSION}.tgz && cd sg3_utils-${SG3_UTILS_VERSION} && \
+    ./configure && make && make install && \
+    cd .. && rm -rf sg3_utils-${SG3_UTILS_VERSION}*
+
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=ssh \
+    git clone --branch ${MULTIVERSION_LINTER_VERSION} ssh://git@b.yadro.com:7999/cyp/cyp-go-multiversion-imports.git && \
+    git clone --branch ${GOLANGCILINT_VERSION} https://github.com/golangci/golangci-lint.git && \
+    cd ./cyp-go-multiversion-imports && \
+    mv ../golangci-lint/go.mod ../golangci-lint/go.sum . && \
+    go mod edit -module yadro.dev/cyp/cyp-go-multiversion-imports && \
+    go mod tidy && \
+    go install --buildmode=plugin plugins/cyp-go-multiversion-imports.go && \
+    cd .. && rm -rf golangci-lint cyp-go-multiversion-imports
+
+RUN apt-get install -y librrd-dev=${LIBRRD_VERSION}
+
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=ssh \
+    CGO_ENABLED=1 go install -v github.com/golangci/golangci-lint/v2/cmd/golangci-lint@${GOLANGCILINT_VERSION} && \
+    go install -v github.com/bombsimon/wsl/v5/cmd/wsl@${WSL_VERSION} && \
+    go install -v go.uber.org/nilaway/cmd/nilaway@${NILAWAY_VERSION} && \
+    go install -v golang.org/x/vuln/cmd/govulncheck@${GOVULNCHECK_VERSION} && \
+    go install -v github.com/bufbuild/buf/cmd/buf@${BUF_VERSION} && \
+    go install -v google.golang.org/grpc/cmd/protoc-gen-go-grpc@${PROTOC_GEN_GO_GRPC_VERSION} && \
+    go install -v google.golang.org/protobuf/cmd/protoc-gen-go@${PROTOC_GEN_GO_VERSION} && \
+    go install -v github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway@${PROTOC_GEN_GRPC_GATEWAY_VERSION} && \
+    go install -v github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2@${PROTOC_GEN_OPENAPIV2_VERSION} && \
+    go install -v github.com/mna/pigeon@${PIGEON_VERSION} && \
+    go install -v github.com/googleapis/api-linter/v2/cmd/api-linter@${API_LINTER_VERSION} && \
+    go install -v github.com/vektra/mockery/v3@${MOCKERY_VERSION} && \
+    go install -v github.com/kei2100/protoc-gen-marshal-zap/plugin/protoc-gen-marshal-zap@${PROTOC_GEN_MARSHAL_ZAP_VERSION} && \
+    go install -v github.com/princjef/gomarkdoc/cmd/gomarkdoc@${GOMARKDOC_VERSION} && \
+    go install -v yadro.dev/cyp/cyp-protoc-gen-doc/cmd/protoc-gen-doc@${PROTOC_GEN_DOC_VERSION} && \
+    go install -v yadro.dev/cyp/cyp-coverage-tool/cmd/cyp-coverage-tool@${COVERAGE_TOOL_VERSION} && \
+    go install -v golang.org/x/tools/cmd/stringer@${STRINGER_VERSION} && \
+    go install -v github.com/mikefarah/yq/v4@${YQ_VERSION} && \
+    go install -v github.com/daixiang0/gci@${GCI_VERSION} && \
+    go install -v yadro.dev/cyp_ext/protoc-gen-cobra@${PROTOC_GEN_COBRA_VERSION} && \
+    go install -v yadro.dev/cyp/collect-gen-cobra-cmds/cmd/collect-gen-cobra-cmds@${COLLECT_GEN_COBRA_CMDS_VERSION} && \
+    go install -v yadro.dev/cyp/cyperr/cmd/docerrgen@${CYPERR_VERSION} && \
+    go install -v github.com/yoheimuta/protolint/cmd/protolint@${PROTOLINT_VERSION} && \
+    go install -v yadro.dev/cyp/cyp-reserved-words-linter/cmd/cyp-reserved-words-linter@${CYP_RESERVED_WORDS_LINTER} && \
+    go install -v github.com/openconfig/ygot/generator@${YGOT_VERSION} && \
+    go install -v yadro.dev/cyp/protoc-gen-grpc-mock/cmd/protoc-gen-grpc-mock@${PROTOC_GEN_GRPC_MOCK_VERSION} && \
+    go install -v yadro.dev/cyp/cyp-proto-viper-integration/cmd/protoc-gen-viper-hooks@${PROTOC_GEN_VIPER_HOOKS_VERSION} && \
+    go install -v github.com/Djarvur/protoc-gen-python-grpc/cmd/protoc-gen-python-grpc@${PROTOC_GEN_PYTHON_GRPC_VERSION} && \
+    go install -v github.com/wasilibs/go-protoc-gen-builtins/cmd/protoc-gen-pyi@${PROTOC_GEN_PYI_VERSION} && \
+    go install -v github.com/wasilibs/go-protoc-gen-builtins/cmd/protoc-gen-python@${PROTOC_GEN_PYTHON_VERSION} && \
+    go install -v github.com/easyp-tech/easyp/cmd/easyp@${EASYP_CLI_VERSION} && \
+    go install -v github.com/go-swagger/go-swagger/cmd/swagger@${GO_SWAGGER_VERSION} && \
+    go install -v github.com/mailru/easyjson/easyjson@${EASYJSON_VERSION} && \
+    go install -v go.uber.org/mock/mockgen@${MOCKGEN_VERSION} && \
+    go install -v github.com/varlink/go/cmd/varlink-go-interface-generator@${VARLINK_GO_INTERFACE_GENERATOR_VERSION} && \
+    \
+    true
+
+ADD --unpack=true ${ARTIFACTORY_URL_SPB}/yadro-proxy-github-releases/jdx/mise/${MISE_VERSION}/mise-${MISE_VERSION}-linux-x64.tar.gz /usr/local
+ENV PATH="$PATH:/usr/local/mise/bin"

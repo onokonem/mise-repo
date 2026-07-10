@@ -1,0 +1,15 @@
+# Minimal golangci-lint v2 config for the consumer (easyp-buf-proxy).
+# The lint task runs `golangci-lint run` which loads this file.
+version: "2"
+
+linters:
+  default: standard # standard set: govet, errcheck, staticcheck, unused, ...
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

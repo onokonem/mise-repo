@@ -1,0 +1,53 @@
+# Builds + publishes the full tools-plugin matrix on one Linux runner.
+# The pipeline is Go (cmd/* + internal/provider) run via `go run`. Trigger is
+# manual (workflow_dispatch) — publish mints the sandbox-<date>-<sha> Release
+# tag, so triggering ON that tag would recurse.
+name: sandbox-publish
+
+on:
+  workflow_dispatch:
+  schedule:
+    # weekly rebuild so pinned cells stay current
+    - cron: "17 3 * * 1"
+
+permissions:
+  contents: write # commit regenerated manifest + manage Release tags
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+
+      - uses: jdx/mise-action@v2
+        with:
+          experimental: true
+
+      - name: Install Go (latest stable) to run the pipeline
+        run: mise install go@latest
+
+      - name: Download Go module deps
+        run: go mod download
+
+      - name: Install gh/git + authenticate
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq jq
+          gh auth setup-git
+
+      - name: Mirror Go toolchains
+        run: mise run mirror-go
+
+      - name: Build tools matrix
+        run: mise run build-tools
+
+      - name: Publish Release + regenerate manifest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: mise run publish
+
+      - name: Prune stale sandbox releases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: mise run prune

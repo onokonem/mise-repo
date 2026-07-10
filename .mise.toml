@@ -1,0 +1,53 @@
+# mise-repo provider config.
+# The pipeline is Go (.mise/cmd/* + .mise/internal/provider), run via `go run`
+# from the .mise module root (dir = ".mise"). Go itself is declared below, so a
+# plain `mise install` provides it (no global install needed). Pinned tool
+# versions live in versions.toml. These tasks are NOT used by consumers —
+# consumers install the plugin from .tools/.
+
+[tools]
+# Go that RUNS the pipeline (latest stable). Distinct from the matrix Go
+# versions in versions.toml, which are installed per buildgo by build-tools.
+go = "latest"
+
+[tasks.sandbox]
+description = "Full pipeline: clean -> mirror-go -> build-tools -> publish"
+depends = ["clean", "mirror-go", "build-tools", "publish"]
+run = "echo 'sandbox pipeline complete'"
+
+[tasks.clean]
+description = "Wipe local artifacts + caches for a fresh full-matrix run"
+run = "rm -rf artifacts .cache && mkdir -p artifacts"
+
+[tasks.mirror-go]
+description = "Mirror official Go tarballs (per versions.toml), verify upstream sha256"
+dir = ".mise"
+run = "go run ./cmd/mirror-go"
+
+[tasks.build-tools]
+description = "Cross-compile every built tool in versions.toml (tool x buildgo x os/arch), CGO_ENABLED=0"
+dir = ".mise"
+run = "go run ./cmd/build-tools"
+
+[tasks.manifest-gen]
+description = "Regenerate .tools/manifest.json from the staging index. Arg: release tag"
+dir = ".mise"
+run = "go run ./cmd/manifest-gen"
+
+[tasks.publish]
+description = "Upload all non-skipped assets to a new GitHub Release + commit regenerated manifest"
+dir = ".mise"
+run = "go run ./cmd/publish"
+
+[tasks.prune]
+description = "Delete prior sandbox-* releases/tags (keeps current). Arg: tag to keep"
+dir = ".mise"
+run = "go run ./cmd/prune"
+
+[tasks.plugin-check]
+description = "Link the plugin from .tools/ locally and list available versions"
+run = """
+mise plugins link --force tools .tools \
+  && mise ls-remote tools:go \
+  && mise ls-remote tools:golangci-lint
+"""

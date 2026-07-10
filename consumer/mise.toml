@@ -1,0 +1,97 @@
+# Consumer template — copy into easyp-buf-proxy (or any Go module) as mise.toml.
+#
+# One-time plugin install (the plugin lives in the .tools subdir of mise-repo,
+# hence the git::<url>//.tools subdir syntax):
+#
+#   mise plugin install tools \
+#     "git::https://github.com/onokonem/mise-repo.git//.tools"
+#
+# After install, `mise install` resolves the [tools] below to host cells with no
+# system Go required.
+
+[tools]
+"tools:go" = "1.26"               # bare version -> host os/arch cell
+"tools:golangci-lint" = "2.12-go1.26"
+
+# ---- per-invocation helpers ----------------------------------------------
+#
+# Tasks parse `go=`, `goos=`, `goarch=` from their args and run the command
+# under an explicit `mise exec` overlay (selection stays per-invocation and
+# parallel-safe; [tools] is never mutated). Examples:
+#   mise run test -- go=1.25
+#   mise run build -- go=1.26 goos=linux goarch=arm64
+#   mise run lint -- go=1.26
+
+[tasks.build]
+description = "Cross-compile (GOOS/GOARCH free). Uses host-native Go toolchain."
+run = """
+set -eu
+GO=1.26; TARGET_OS=; TARGET_ARCH=
+for a in "$@"; do
+  case "$a" in
+    go=*)    GO="${a#go=}" ;;
+    goos=*)  TARGET_OS="${a#goos=}" ;;
+    goarch=*) TARGET_ARCH="${a#goarch=}" ;;
+  esac
+done
+# build is the only cross-per-invocation task: env-driven, host-native go binary.
+. .mise/host.sh
+export GOOS="${TARGET_OS:-$HOST_OS}" GOARCH="${TARGET_ARCH:-$HOST_ARCH}" CGO_ENABLED=0
+mise exec "tools:go@${GO}" -- go build ./...
+echo "built for ${GOOS}/${GOARCH} with go${GO}"
+"""
+
+[tasks.test]
+description = "Run tests with -race. Cell MUST be host (native guard enforced)."
+run = """
+set -eu
+GO=1.26; REQ_OS=; REQ_ARCH=
+for a in "$@"; do
+  case "$a" in
+    go=*) GO="${a#go=}" ;;
+    goos=*) REQ_OS="${a#goos=}" ;;
+    goarch=*) REQ_ARCH="${a#goarch=}" ;;
+  esac
+done
+. .mise/host.sh
+if [ -n "$REQ_OS" ] && [ "$REQ_OS" != "$HOST_OS" ]; then
+  echo "test executes the Go binary, so the cell must match the host:" >&2
+  echo "  requested goos=$REQ_OS, host=$HOST_OS. Use 'mise run build' for cross." >&2
+  exit 1
+fi
+if [ -n "$REQ_ARCH" ] && [ "$REQ_ARCH" != "$HOST_ARCH" ]; then
+  echo "test executes the Go binary, so the cell must match the host:" >&2
+  echo "  requested goarch=$REQ_ARCH, host=$HOST_ARCH. Use 'mise run build' for cross." >&2
+  exit 1
+fi
+# -race needs a host C compiler (gcc on Linux, clang on macOS). Install it if
+# the race detector complains about missing CGO.
+mise exec "tools:go@${GO}" -- go test ./... -race -count=1
+"""
+
+[tasks.lint]
+description = "Run golangci-lint against .golangci.yml. Cell MUST be host."
+run = """
+set -eu
+GO=1.26; REQ_OS=; REQ_ARCH=
+for a in "$@"; do
+  case "$a" in
+    go=*) GO="${a#go=}" ;;
+    goos=*) REQ_OS="${a#goos=}" ;;
+    goarch=*) REQ_ARCH="${a#goarch=}" ;;
+  esac
+done
+. .mise/host.sh
+if [ -n "$REQ_OS" ] && [ "$REQ_OS" != "$HOST_OS" ]; then
+  echo "lint executes golangci-lint, so the cell must match the host:" >&2
+  echo "  requested goos=$REQ_OS, host=$HOST_OS." >&2
+  exit 1
+fi
+if [ -n "$REQ_ARCH" ] && [ "$REQ_ARCH" != "$HOST_ARCH" ]; then
+  echo "lint executes golangci-lint, so the cell must match the host:" >&2
+  echo "  requested goarch=$REQ_ARCH, host=$HOST_ARCH." >&2
+  exit 1
+fi
+# golangci-lint shells out to `go` for package loading -> overlay BOTH.
+mise exec "tools:go@${GO}" "tools:golangci-lint@2.12-go${GO}" -- golangci-lint run
+"""
