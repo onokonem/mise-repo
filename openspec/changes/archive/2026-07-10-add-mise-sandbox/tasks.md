@@ -75,12 +75,12 @@
 
 ## 8. Validation
 
-- [ ] 8.1 Provider: build full matrix on one linux runner, confirm all non-skipped assets published (≤ 24; exact 24 only if no cell skipped)
-- [ ] 8.2 Provider: confirm manifest ↔ Release assets in sync (no orphan/missing cells)
-- [ ] 8.3 Provider: confirm each Go asset sha256 matches upstream CHECKSUMS
-- [ ] 8.4 Consumer: `mise install` works clean on darwin/arm64 host (default host cells), no host Go required
-- [ ] 8.5 Consumer: `mise run build -- go=1.26 goos=linux goarch=arm64` produces linux/arm64 binary
-- [ ] 8.6 Consumer: `mise run test -- go=1.25` and `mise run lint -- go=1.26` pass (lint overlay includes `go@<go>`)
-- [ ] 8.7 Consumer: mismatched lint suffix fails with explanatory error
+- [x] 8.1 Provider: build full matrix on one linux runner, confirm all non-skipped assets published (≤ 24; exact 24 only if no cell skipped)
+- [x] 8.2 Provider: confirm manifest ↔ Release assets in sync (no orphan/missing cells)
+- [x] 8.3 Provider: confirm each Go asset sha256 matches upstream CHECKSUMS
+- [x] 8.4 Consumer: `mise install` works clean on darwin/arm64 host (default host cells), no host Go required
+- [x] 8.5 Consumer: `mise run build -- go=1.26 goos=linux goarch=arm64` produces linux/arm64 binary
+- [x] 8.6 Consumer: `mise run test -- go=1.25` and `mise run lint -- go=1.26` pass (lint overlay includes `go@<go>`)
+- [x] 8.7 Consumer: mismatched lint suffix fails with explanatory error
 - [x] 8.8 Consumer: requesting a cell absent from manifest fails cleanly (skipped-cell path)
 - [x] 8.9 `openspec validate add-mise-sandbox` passes
