@@ -10,3 +10,7 @@ artifacts/
 *.tmp
 
 .DS_Store
+
+# consumer build output
+/consumer/consumer
+/.mise/build-tools

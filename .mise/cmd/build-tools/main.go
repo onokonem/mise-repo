@@ -72,9 +72,9 @@ func buildCell(scratch, root, name string, spec provider.BuiltTool, buildgo, ful
 
 	logf("  build %s %s-%s (go%s)", name, goos, arch, buildgo)
 	// Non-fatal cell: capture output, skip on failure (task 3.4).
-	// `go install` refuses cross-compiled output when GOBIN is set, so leave
-	// GOBIN unset and use a shared GOPATH (module cache persists across cells).
-	// The cross-compiled binary lands at $GOPATH/bin/<goos>_<goarch>/<binary>.
+	// `go install` resolves the pkg@version form (go build does not). Leave
+	// GOBIN unset (go install refuses cross-compiled output when GOBIN is set)
+	// and use a shared GOPATH so the module cache persists across cells.
 	gopath := filepath.Join(root, ".cache", "gopath")
 	cmd := exec.Command("mise", "exec", "go@"+fullver, "--", "env",
 		"-u", "GOBIN",
@@ -93,13 +93,23 @@ func buildCell(scratch, root, name string, spec provider.BuiltTool, buildgo, ful
 		return nil
 	}
 
-	bin := filepath.Join(gopath, "bin", goos+"_"+arch, spec.Binary)
+	// `go install` writes the binary to $GOPATH/bin/<goos>_<goarch>/ when
+	// cross-compiling, but to $GOPATH/bin/ (no subdir) when the target equals
+	// the host. Without handling both, every native-arch cell (e.g. darwin-arm64
+	// on an Apple-Silicon host, or linux-amd64 on the CI runner) is silently
+	// dropped. Resolve whichever location actually received the binary.
+	cellBin := filepath.Join(dir, spec.Binary)
+	binCross := filepath.Join(gopath, "bin", goos+"_"+arch, spec.Binary)
+	binNative := filepath.Join(gopath, "bin", spec.Binary)
+	bin := binCross
+	if _, err := os.Stat(bin); err != nil {
+		bin = binNative
+	}
 	if _, err := os.Stat(bin); err != nil {
 		logf("  cell skipped (binary not produced, see %s): %s %s-%s go%s", filepath.Join(dir, "build.log"), name, goos, arch, buildgo)
 		return nil
 	}
 	// Move the built binary into the cell dir, then package it.
-	cellBin := filepath.Join(dir, spec.Binary)
 	if err := os.Rename(bin, cellBin); err != nil {
 		return err
 	}
