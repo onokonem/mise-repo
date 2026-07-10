@@ -15,8 +15,8 @@ description = "Full pipeline: clean -> mirror-go -> build-tools -> publish (seri
 run = "mise run clean && mise run mirror-go && mise run build-tools && mise run publish"
 
 [tasks.clean]
-description = "Wipe local artifacts + caches for a fresh full-matrix run"
-run = "rm -rf artifacts .cache && mkdir -p artifacts"
+description = "Wipe local artifacts for a fresh full-matrix run (module cache in .cache is preserved)"
+run = "rm -rf artifacts && mkdir -p artifacts"
 
 [tasks.mirror-go]
 description = "Mirror official Go tarballs (per versions.toml), verify upstream sha256"
