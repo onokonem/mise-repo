@@ -47,6 +47,48 @@ mise run sandbox   # clean -> mirror-go -> build-tools -> publish
 non-skipped assets, regenerates `.tools/manifest.json`, and commits it. Run
 `mise run prune` to drop stale sandbox releases.
 
+## Binary storage
+
+Built binaries are **not stored in git**. There is no Git-LFS and `artifacts/`
+is gitignored (`.gitignore:11`) — the build tree is never committed. The
+canonical home of every binary is a **GitHub Release `.tar.gz`**; the repo
+carries only the manifest pointer.
+
+**Format.** Each cell is a single stripped binary packaged as a `.tar.gz`.
+Cross-compiled with `CGO_ENABLED=0 -trimpath -ldflags=-s -w` via `go install`
+([build-tools/main.go:78-82](.mise/cmd/build-tools/main.go#L78-L82)), then
+`tar -czf`'d alone ([build-tools/main.go:106](.mise/cmd/build-tools/main.go#L106)).
+Asset name:
+`<binary>-<stem>-go<buildgo>.<os>-<arch>.tar.gz`
+([build-tools/main.go:67](.mise/cmd/build-tools/main.go#L67)).
+
+**Local build output (gitignored).** Tarballs land under
+`artifacts/<tool>/<os>-<arch>/go<buildgo>/<asset>.tar.gz`
+([build-tools/main.go:66-68](.mise/cmd/build-tools/main.go#L66-L68)); a staging
+index row per cell is appended to `artifacts/.index.jsonl`
+(`{asset, sha256, path}`).
+
+**Publish (git → GitHub).** `publish` opens a `sandbox-<YYYYMMDD>-<short-sha>`
+release ([publish/main.go:45-49](.mise/cmd/publish/main.go#L45-L49)), uploads
+all non-skipped tarballs with `gh release upload --clobber` — aborting and
+deleting the release on any partial failure
+([publish/main.go:52-53](.mise/cmd/publish/main.go#L52-L53)) — then regenerates
+and commits `.tools/manifest.json`
+([publish/main.go:63-67](.mise/cmd/publish/main.go#L63-L67)).
+
+**Committed pointer (the only thing tracked).**
+[.tools/manifest.json](.tools/manifest.json) records, for every cell, the
+`asset`, `asset_url`, `sha256`, and `release_tag`. The base download URL lives
+in [config.lua:16](.tools/config.lua#L16)
+(`release_base_url = https://github.com/onokonem/mise-repo/releases/download`).
+
+**Consumer retrieval.** On install the plugin fetches the cell's `asset_url`
+via `http.download_file` ([backend_install.lua:62](.tools/hooks/backend_install.lua#L62)),
+verifies `sha256` against the manifest
+([backend_install.lua:65-73](.tools/hooks/backend_install.lua#L65-L73)), then
+`archiver.decompress` extracts the tarball into the install path
+([backend_install.lua:77](.tools/hooks/backend_install.lua#L77)).
+
 ## Consume
 
 See [consumer/README.md](consumer/README.md). Short version:
