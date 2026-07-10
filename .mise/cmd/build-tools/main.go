@@ -77,6 +77,7 @@ func buildCell(scratch, root, name string, spec provider.BuiltTool, buildgo, ful
 	// The cross-compiled binary lands at $GOPATH/bin/<goos>_<goarch>/<binary>.
 	gopath := filepath.Join(root, ".cache", "gopath")
 	cmd := exec.Command("mise", "exec", "go@"+fullver, "--", "env",
+		"-u", "GOBIN",
 		"GOOS="+goos, "GOARCH="+arch, "CGO_ENABLED=0", "GOPATH="+gopath,
 		"go", "install", "-trimpath", "-ldflags=-s -w", spec.Path+"@"+spec.Version)
 	cmd.Dir = scratch
