@@ -68,13 +68,17 @@ Asset name:
 index row per cell is appended to `artifacts/.index.jsonl`
 (`{asset, sha256, path}`).
 
-**Publish (git → GitHub).** `publish` opens a `sandbox-<YYYYMMDD>-<short-sha>`
-release ([publish/main.go:45-49](.mise/cmd/publish/main.go#L45-L49)), uploads
-all non-skipped tarballs with `gh release upload --clobber` — aborting and
-deleting the release on any partial failure
-([publish/main.go:52-53](.mise/cmd/publish/main.go#L52-L53)) — then regenerates
-and commits `.tools/manifest.json`
-([publish/main.go:63-67](.mise/cmd/publish/main.go#L63-L67)).
+**Publish (git → GitHub).** `publish` pushes HEAD (the release's
+`--target` SHA must exist on the remote)
+([publish/main.go:47](.mise/cmd/publish/main.go#L47)), opens a
+`sandbox-<YYYYMMDD>-<short-sha>` release — tolerating an already-existing one
+and reconciling its assets
+([publish/main.go:50-62](.mise/cmd/publish/main.go#L50-L62)) — then uploads all
+non-skipped tarballs with `gh release upload --clobber`, retrying up to 4× on
+transient errors and keeping the release on failure so a re-run resumes
+([publish/main.go:64-87](.mise/cmd/publish/main.go#L64-L87)). On success it
+regenerates and commits `.tools/manifest.json` and pushes that commit
+([publish/main.go:89-101](.mise/cmd/publish/main.go#L89-L101)).
 
 **Committed pointer (the only thing tracked).**
 [.tools/manifest.json](.tools/manifest.json) records, for every cell, the
