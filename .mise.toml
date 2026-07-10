@@ -11,9 +11,8 @@
 go = "latest"
 
 [tasks.sandbox]
-description = "Full pipeline: clean -> mirror-go -> build-tools -> publish"
-depends = ["clean", "mirror-go", "build-tools", "publish"]
-run = "echo 'sandbox pipeline complete'"
+description = "Full pipeline: clean -> mirror-go -> build-tools -> publish (serial)"
+run = "mise run clean && mise run mirror-go && mise run build-tools && mise run publish"
 
 [tasks.clean]
 description = "Wipe local artifacts + caches for a fresh full-matrix run"

@@ -72,9 +72,12 @@ func buildCell(scratch, root, name string, spec provider.BuiltTool, buildgo, ful
 
 	logf("  build %s %s-%s (go%s)", name, goos, arch, buildgo)
 	// Non-fatal cell: capture output, skip on failure (task 3.4).
-	// GOBIN=dir makes `go install` drop the binary straight in the cell dir.
+	// `go install` refuses cross-compiled output when GOBIN is set, so leave
+	// GOBIN unset and use a shared GOPATH (module cache persists across cells).
+	// The cross-compiled binary lands at $GOPATH/bin/<goos>_<goarch>/<binary>.
+	gopath := filepath.Join(root, ".cache", "gopath")
 	cmd := exec.Command("mise", "exec", "go@"+fullver, "--", "env",
-		"GOOS="+goos, "GOARCH="+arch, "CGO_ENABLED=0", "GOBIN="+dir,
+		"GOOS="+goos, "GOARCH="+arch, "CGO_ENABLED=0", "GOPATH="+gopath,
 		"go", "install", "-trimpath", "-ldflags=-s -w", spec.Path+"@"+spec.Version)
 	cmd.Dir = scratch
 	buildLog, err := os.Create(filepath.Join(dir, "build.log"))
@@ -89,16 +92,20 @@ func buildCell(scratch, root, name string, spec provider.BuiltTool, buildgo, ful
 		return nil
 	}
 
-	bin := filepath.Join(dir, spec.Binary)
+	bin := filepath.Join(gopath, "bin", goos+"_"+arch, spec.Binary)
 	if _, err := os.Stat(bin); err != nil {
 		logf("  cell skipped (binary not produced, see %s): %s %s-%s go%s", filepath.Join(dir, "build.log"), name, goos, arch, buildgo)
 		return nil
 	}
-	// Package the binary into a tarball for uniform extraction.
+	// Move the built binary into the cell dir, then package it.
+	cellBin := filepath.Join(dir, spec.Binary)
+	if err := os.Rename(bin, cellBin); err != nil {
+		return err
+	}
 	if err := provider.Run(dir, "tar", "-czf", out, spec.Binary); err != nil {
 		return fmt.Errorf("tar %s: %w", asset, err)
 	}
-	if err := os.Remove(bin); err != nil {
+	if err := os.Remove(cellBin); err != nil {
 		return err
 	}
 	got, err := provider.SHA256File(out)
